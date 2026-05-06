@@ -1,0 +1,53 @@
+### 1.3.2 Prometheus 告警規則
+
+```yaml
+# config/alert_rules.yml
+
+groups:
+  - name: latency_alerts
+    rules:
+
+      - alert: HighRequestLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket[5m])
+          ) > 1.0
+        for: 2m
+        labels:
+          severity: warning
+          scenario: latency_spike
+        annotations:
+          summary: "p95 延遲超過 1s：{{ $labels.service }}"
+          description: "目前 p95 延遲為 {{ $value | humanizeDuration }}"
+
+      - alert: CriticalRequestLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket[5m])
+          ) > 3.0
+        for: 1m
+        labels:
+          severity: critical
+          scenario: latency_spike
+        annotations:
+          summary: "p95 延遲超過 3s（嚴重）：{{ $labels.service }}"
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: db_connection_pool_active > 85
+        for: 1m
+        labels:
+          severity: critical
+          scenario: db_saturation
+        annotations:
+          summary: "DB 連線池使用率過高：{{ $labels.service }}"
+
+      - alert: HighErrorRate
+        expr: |
+          rate(http_requests_total{status_code=~"5.."}[5m])
+          / rate(http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Error rate 超過 5%：{{ $labels.service }}"
+```

@@ -1,0 +1,10 @@
+# Python 虛擬環境與快取
+venv/
+__pycache__/
+*.pyc
+
+# 模擬產生的日誌檔 (不需要上傳假資料)
+logs/app.log
+
+# Mac 系統隱藏檔 (預防萬一)
+.DS_Store
