@@ -1,74 +1,71 @@
-### 1.2.2 Log 模擬腳本
-
-
-# simulator/log_generator.py
-
-import json
 import time
 import random
+import json
+import logging
+import os
 from datetime import datetime, timezone
-from faker import Faker
 
-fake = Faker()
+# 確保 logs 資料夾存在
+os.makedirs('logs', exist_ok=True)
 
-SERVICES = ["account-service", "transfer-service", "credit-service"]
-ENDPOINTS = {
-    "account-service":  ["/api/v1/account/balance", "/api/v1/account/history"],
-    "transfer-service": ["/api/v1/transfer/domestic", "/api/v1/transfer/status"],
-    "credit-service":   ["/api/v1/credit/score", "/api/v1/credit/limit"],
-}
-STATUS_CODES_NORMAL   = [200, 200, 200, 200, 201, 204]
-STATUS_CODES_DEGRADED = [200, 500, 503, 504, 408]
+# 設定 logging，輸出到 logs/app.log
+logger = logging.getLogger('simulator')
+logger.setLevel(logging.INFO)
+file_handler = logging.FileHandler('logs/app.log')
+file_handler.setFormatter(logging.Formatter('%(message)s'))
+logger.addHandler(file_handler)
 
-def generate_log_entry(is_anomaly: bool = False) -> dict:
-    service  = random.choice(SERVICES)
-    endpoint = random.choice(ENDPOINTS[service])
-
-    if is_anomaly:
-        response_time = random.randint(2000, 8000)
-        status_code   = random.choice(STATUS_CODES_DEGRADED)
-        error_msg     = random.choice([
-            "upstream timeout", "connection pool exhausted",
-            "database query timeout", None
-        ])
-    else:
-        response_time = random.randint(80, 300)
-        status_code   = random.choice(STATUS_CODES_NORMAL)
-        error_msg     = None
-
-    return {
-        "timestamp":     datetime.now(timezone.utc).isoformat(),
-        "level":         "ERROR" if status_code >= 500 else "INFO",
-        "service":       service,
-        "trace_id":      fake.uuid4(),
-        "span_id":       fake.uuid4()[:16],
-        "endpoint":      endpoint,
-        "method":        "GET" if "balance" in endpoint or "score" in endpoint else "POST",
-        "status_code":   status_code,
-        "response_time_ms": response_time,
-        "user_id":       fake.uuid4()[:8],
-        "error_message": error_msg,
-    }
-
-def stream_logs(output_file: str = "logs/app.log",
-                anomaly_windows: list = None):
-    """
-    anomaly_windows: list of (start_minute, end_minute) tuples
-    e.g. [(10, 15), (45, 50)]
-    """
-    anomaly_windows = anomaly_windows or [(10, 15), (45, 50)]
+def generate_logs():
+    print("啟動 Logs 模擬器... 寫入至 logs/app.log")
     start_time = time.time()
+    
+    endpoints = ['/api/login', '/api/transaction', '/api/balance']
+    
+    while True:
+        # 計算目前程式已經執行了幾分鐘
+        elapsed_minutes = (time.time() - start_time) / 60
+        
+        # 異常區間：第 1 到 4 分鐘
+        is_anomaly = 1 <= elapsed_minutes <= 4
+        
+        timestamp = datetime.now(timezone.utc).isoformat()
+        trace_id = f"trace-{random.randint(1000, 9999)}"
+        endpoint = random.choice(endpoints)
+        
+        # 核心改動：狀態機率分配
+        if is_anomaly:
+            # 系統崩潰期：80% 都是 ERROR (大爆發)
+            level = random.choices(['INFO', 'ERROR'], weights=[0.2, 0.8])[0]
+        else:
+            # 日常穩定狀態：95% INFO, 3% WARN, 2% ERROR (背景雜訊)
+            level = random.choices(['INFO', 'WARN', 'ERROR'], weights=[0.95, 0.03, 0.02])[0]
+            
+        # 根據 Level 給予對應的狀態碼與假訊息
+        if level == 'ERROR':
+            status = 500
+            msg = "database query timeout" if is_anomaly else "connection reset by peer (random noise)"
+        elif level == 'WARN':
+            status = 429
+            msg = "rate limit exceeded"
+        else:
+            status = 200
+            msg = "request processed successfully"
 
-    with open(output_file, "a") as f:
-        while True:
-            elapsed_minutes = (time.time() - start_time) / 60
-            is_anomaly = any(s <= elapsed_minutes <= e
-                             for s, e in anomaly_windows)
-            entry = generate_log_entry(is_anomaly)
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-            f.flush()
-            time.sleep(random.uniform(0.1, 0.5))  # ~3–10 req/sec
+        log_entry = {
+            "timestamp": timestamp,
+            "level": level,
+            "trace_id": trace_id,
+            "endpoint": endpoint,
+            "status": status,
+            "message": msg
+        }
+        
+        # 寫入 JSON 日誌
+        logger.info(json.dumps(log_entry))
+        
+        # 模擬請求間隔 (異常時日誌狂刷，正常時順暢)
+        sleep_time = random.uniform(0.01, 0.05) if is_anomaly else random.uniform(0.1, 0.3)
+        time.sleep(sleep_time)
 
-if __name__ == "__main__":
-    print("啟動 Log 模擬器...")
-    stream_logs(output_file="logs/app.log")
+if __name__ == '__main__':
+    generate_logs()

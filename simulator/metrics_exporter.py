@@ -1,52 +1,36 @@
-### 1.2.3 Metrics 模擬腳本
+import time
+import random
+from prometheus_client import start_http_server, Counter
 
+# 定義 Prometheus 指標
+REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP Requests', ['method', 'endpoint', 'status_code'])
 
-# simulator/metrics_exporter.py
-# Exposes a /metrics endpoint for Prometheus to scrape
-
-from prometheus_client import start_http_server, Histogram, Counter, Gauge
-import time, random, threading
-
-REQUEST_LATENCY = Histogram(
-    "http_request_duration_seconds",
-    "HTTP request latency",
-    ["service", "endpoint"],
-    buckets=[0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0]
-)
-REQUEST_TOTAL = Counter(
-    "http_requests_total",
-    "Total HTTP requests",
-    ["service", "status_code"]
-)
-ACTIVE_CONNECTIONS = Gauge(
-    "db_connection_pool_active",
-    "Active DB connections",
-    ["service"]
-)
-
-is_anomaly_mode = False
-
-def simulate_traffic():
-    services = ["account-service", "transfer-service", "credit-service"]
+def generate_metrics():
+    print("啟動 Metrics 模擬器 (Port 8000)...")
+    start_time = time.time()
+    
     while True:
-        for svc in services:
-            latency = (
-                random.uniform(2.0, 8.0) if is_anomaly_mode
-                else random.uniform(0.08, 0.3)
-            )
-            REQUEST_LATENCY.labels(service=svc, endpoint="/api/v1/query").observe(latency)
-            status = "500" if is_anomaly_mode and random.random() < 0.1 else "200"
-            REQUEST_TOTAL.labels(service=svc, status_code=status).inc()
-            pool_size = (
-                random.randint(90, 100) if is_anomaly_mode
-                else random.randint(10, 40)
-            )
-            ACTIVE_CONNECTIONS.labels(service=svc).set(pool_size)
-        time.sleep(1)
+        # 計算目前程式已經執行了幾分鐘
+        elapsed_minutes = (time.time() - start_time) / 60
+        
+        # 核心改動：設定第 1 到 4 分鐘為「系統崩潰期」
+        is_anomaly = 1 <= elapsed_minutes <= 4
+        
+        if is_anomaly:
+            # 異常狀態：大幅提升 500 錯誤的機率 (70%)
+            status = random.choices(['200', '500'], weights=[0.3, 0.7])[0]
+        else:
+            # 正常狀態：99% 都是 200 正常流量，偶爾有極少數的 500 錯誤
+            status = random.choices(['200', '500'], weights=[0.99, 0.01])[0]
+        
+        # 寫入指標
+        REQUEST_COUNT.labels(method='GET', endpoint='/api/transaction', status_code=status).inc()
+        
+        # 模擬請求間隔 (異常時稍微卡頓，正常時順暢)
+        sleep_time = random.uniform(0.1, 0.5) if not is_anomaly else random.uniform(0.01, 0.1)
+        time.sleep(sleep_time)
 
-if __name__ == "__main__":
-    start_http_server(8000)  # Prometheus scrapes :8000/metrics
-    threading.Thread(target=simulate_traffic, daemon=True).start()
-    # Anomaly trigger: toggle is_anomaly_mode externally via API
-    while True:
-        time.sleep(1)
+if __name__ == '__main__':
+    # 在 8000 port 啟動 Prometheus 伺服器
+    start_http_server(8000)
+    generate_metrics()
