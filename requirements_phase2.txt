@@ -1,0 +1,18 @@
+# requirements_phase2.txt
+
+# 資料擷取
+requests==2.31.0
+httpx==0.27.0
+
+# 特徵工程與 ML
+scikit-learn==1.4.2
+numpy==1.26.4
+pandas==2.2.2
+joblib==1.4.2
+
+# 排程
+schedule==1.2.1
+
+# 工具
+python-dotenv==1.0.1
+pydantic==2.7.1

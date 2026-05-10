@@ -8,3 +8,12 @@ logs/app.log
 
 # Mac 系統隱藏檔 (預防萬一)
 .DS_Store
+
+# 忽略環境變數檔
+.env
+
+# (選用) 忽略機器學習產出的模型與告警日誌
+# 如果你希望在 GitHub 上保留一份能直接跑的模型，這兩行可以不加；
+# 但正式專案通常不 commit 這些會一直變動的檔案。
+models/*.pkl
+alerts/*.jsonl
