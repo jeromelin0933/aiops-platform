@@ -1,0 +1,230 @@
+<!-- phase3/web/templates/report.html -->
+{% extends "base.html" %}
+{% block title %}{{ report.report_id }} — AIOps Dashboard{% endblock %}
+
+{% block content %}
+{% set severity = rca.severity_assessment | default('unknown') %}
+<div class="fade-in">
+
+  <!-- 麵包屑 -->
+  <div class="flex items-center gap-2 mb-8 text-sm text-gray-400">
+    <a href="/" class="hover:text-gray-600 transition-colors">事件總覽</a>
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+    </svg>
+    <span class="text-gray-600 font-medium font-mono">{{ report.report_id }}</span>
+  </div>
+
+  <!-- 頁首：事件摘要 + 嚴重度 -->
+  <div class="glass-card rounded-3xl px-8 py-8 shadow-sm mb-6">
+    <div class="flex items-start justify-between">
+      <div class="flex-1">
+        <div class="flex items-center gap-3 mb-3">
+          {% if severity == 'critical' %}
+            <span class="px-3 py-1.5 rounded-full text-xs font-bold badge-critical tracking-wide">
+              ● CRITICAL
+            </span>
+          {% elif severity == 'high' %}
+            <span class="px-3 py-1.5 rounded-full text-xs font-bold badge-high tracking-wide">
+              ● HIGH
+            </span>
+          {% else %}
+            <span class="px-3 py-1.5 rounded-full text-xs font-bold badge-medium tracking-wide">
+              ● {{ severity | upper }}
+            </span>
+          {% endif %}
+          <span class="text-xs text-gray-400 font-mono">{{ report.report_id }}</span>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900 leading-snug tracking-tight">
+          {{ rca.incident_summary | default('根因分析報告') }}
+        </h1>
+        <p class="mt-2 text-sm text-gray-400">
+          分析時間：{{ report.generated_at[:19] | replace('T', ' ') }} UTC
+          · 模型：{{ rca.model_used | default('Gemini') }}
+        </p>
+      </div>
+      <!-- MTTR 縮短數字 -->
+      {% if rca.estimated_mttr_minutes %}
+      <div class="ml-8 text-right flex-shrink-0">
+        <p class="text-xs text-gray-400 uppercase tracking-widest">預估縮短 MTTR</p>
+        <p class="text-4xl font-bold text-gray-900 tabular-nums">
+          {{ rca.estimated_mttr_minutes }}<span class="text-lg font-normal text-gray-400">min</span>
+        </p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- 主體：左右兩欄佈局 -->
+  <div class="grid grid-cols-12 gap-6">
+
+    <!-- 左欄：告警指標 + 時間軸 -->
+    <div class="col-span-4 space-y-5">
+
+      <!-- Metrics 快照 -->
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
+          異常指標快照
+        </h3>
+        {% set m = report.rca.feature_vector | default({}) %}
+        {% set metrics = report.rca %}
+        <!-- 從 alert 的 metrics 欄位取值 -->
+        <div class="space-y-3">
+          {% set metric_items = [
+            ('p95 延遲', rca.feature_vector.p95_latency_ms | default('—'), 'ms', 'red'),
+            ('錯誤率', rca.feature_vector.error_rate_pct | default('—'), '%', 'red'),
+            ('DB 連線池', rca.feature_vector.db_pool_usage_pct | default('—'), '%', 'amber'),
+            ('吞吐量', rca.feature_vector.throughput_rps | default('—'), 'rps', 'gray'),
+          ] %}
+          {% for label, value, unit, color in metric_items %}
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-500">{{ label }}</span>
+            <span class="text-sm font-semibold
+              {% if color == 'red' %}text-red-600
+              {% elif color == 'amber' %}text-amber-600
+              {% else %}text-gray-700{% endif %}
+              tabular-nums font-mono">
+              {{ value }}
+              <span class="text-xs font-normal text-gray-400">{{ unit }}</span>
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- 事件時間軸 -->
+      {% if rca.timeline %}
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
+          事件時間軸
+        </h3>
+        <div class="relative">
+          <div class="absolute left-[9px] top-2 bottom-2 w-px bg-gray-100"></div>
+          <div class="space-y-4">
+            {% for item in rca.timeline %}
+            <div class="flex items-start gap-4 relative">
+              <div class="w-[18px] h-[18px] rounded-full bg-gray-900 border-2 border-white
+                          flex-shrink-0 mt-0.5 relative z-10
+                          flex items-center justify-center">
+                <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+              </div>
+              <div class="pb-1">
+                <span class="text-xs font-mono text-gray-400">{{ item.time }}</span>
+                <p class="text-sm text-gray-700 mt-0.5">{{ item.event }}</p>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- 右欄：根因分析 + 修復步驟 + 預防措施 -->
+    <div class="col-span-8 space-y-5">
+
+      <!-- 根本原因分析 -->
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-5">
+          根本原因分析
+        </h3>
+        {% if rca.root_causes %}
+        <div class="space-y-4">
+          {% for cause in rca.root_causes %}
+          <div class="rounded-xl border
+            {% if cause.confidence == 'high' %}border-red-100 bg-red-50/40
+            {% elif cause.confidence == 'medium' %}border-amber-100 bg-amber-50/40
+            {% else %}border-gray-100 bg-gray-50/40{% endif %}
+            p-4">
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-gray-400">#{{ cause.rank }}</span>
+                <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                  {% if cause.confidence == 'high' %}badge-critical
+                  {% elif cause.confidence == 'medium' %}badge-high
+                  {% else %}badge-low{% endif %}">
+                  {{ cause.confidence | upper }}
+                </span>
+                {% if cause.sop_reference %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-mono
+                             bg-gray-100 text-gray-500">
+                  {{ cause.sop_reference }}
+                </span>
+                {% endif %}
+              </div>
+            </div>
+            <p class="text-sm font-semibold text-gray-800 mb-1.5">{{ cause.hypothesis }}</p>
+            <p class="text-xs text-gray-500 leading-relaxed font-mono bg-white/60
+                      rounded-lg p-2.5 border border-gray-100/50">
+              {{ cause.evidence }}
+            </p>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400">無法取得根因分析結果</p>
+        {% endif %}
+      </div>
+
+      <!-- 修復步驟 -->
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-5">
+          排障步驟
+        </h3>
+        {% if rca.remediation_steps %}
+        <div class="space-y-3">
+          {% for step in rca.remediation_steps | sort(attribute='order') %}
+          <div class="flex items-start gap-4">
+            <!-- 序號圓圈 -->
+            <div class="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center
+                        {% if step.priority == 'immediate' %}bg-red-100 text-red-700
+                        {% elif step.priority == 'short_term' %}bg-amber-100 text-amber-700
+                        {% else %}bg-gray-100 text-gray-500{% endif %}
+                        text-xs font-bold mt-0.5">
+              {{ step.order }}
+            </div>
+            <div class="flex-1 pt-0.5">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-medium uppercase tracking-wide
+                  {% if step.priority == 'immediate' %}text-red-500
+                  {% elif step.priority == 'short_term' %}text-amber-500
+                  {% else %}text-gray-400{% endif %}">
+                  {{ step.priority | replace('_', ' ') }}
+                </span>
+              </div>
+              <p class="text-sm text-gray-800 font-medium">{{ step.action }}</p>
+              <p class="text-xs text-gray-400 mt-0.5">→ {{ step.expected_effect }}</p>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- 預防措施 -->
+      {% if rca.prevention_measures %}
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
+          預防措施
+        </h3>
+        <ul class="space-y-2">
+          {% for measure in rca.prevention_measures %}
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <svg class="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" fill="none"
+                 stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            {{ measure }}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

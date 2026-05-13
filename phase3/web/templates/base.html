@@ -1,0 +1,75 @@
+<!-- phase3/web/templates/base.html -->
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}AIOps Incident Dashboard{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Apple San Francisco 字體回退堆疊 */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+                   "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    /* Glassmorphism 卡片 */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    /* 微動畫 */
+    .fade-in {
+      animation: fadeIn 0.4s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    /* 嚴重度徽章顏色 */
+    .badge-critical { background:#FEE2E2; color:#991B1B; }
+    .badge-high     { background:#FEF3C7; color:#92400E; }
+    .badge-medium   { background:#DBEAFE; color:#1E40AF; }
+    .badge-low      { background:#D1FAE5; color:#065F46; }
+
+    /* 滾動條美化 */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+  <!-- 頂部導覽列 -->
+  <nav class="bg-white/80 backdrop-blur-xl border-b border-gray-100 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <!-- Logo：極簡圓形 -->
+        <div class="w-8 h-8 bg-black rounded-full flex items-center justify-center">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+        </div>
+        <div>
+          <span class="text-sm font-semibold text-gray-900 tracking-tight">AIOps</span>
+          <span class="text-sm text-gray-400 ml-2">Incident Dashboard</span>
+        </div>
+      </div>
+      <!-- 系統狀態指示燈 -->
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+        <span class="text-xs text-gray-500 font-medium">系統監控中</span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-6 py-10">
+    {% block content %}{% endblock %}
+  </main>
+
+</body>
+</html>

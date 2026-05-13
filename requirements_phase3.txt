@@ -1,0 +1,19 @@
+# requirements_phase3.txt
+
+# Web framework
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+jinja2==3.1.4
+python-multipart==0.0.12
+
+# Gemini API（google-genai 為最新 unified SDK）
+google-genai==1.16.0
+
+# 資料存取
+requests==2.32.3
+httpx>=0.28.1
+
+# 工具
+python-dotenv==1.0.1
+pydantic==2.9.2
+watchdog==5.0.3

@@ -1,0 +1,124 @@
+<!-- phase3/web/templates/index.html -->
+{% extends "base.html" %}
+{% block title %}事件總覽 — AIOps Dashboard{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+
+  <!-- 頁首 -->
+  <div class="mb-10">
+    <h1 class="text-3xl font-bold text-gray-900 tracking-tight">事件診斷中心</h1>
+    <p class="mt-1 text-gray-500 text-sm">
+      自動化根因分析 · 由 Gemini 2.5 Flash 提供 AI 推論
+    </p>
+  </div>
+
+  <!-- 統計卡片列 -->
+  <div class="grid grid-cols-3 gap-4 mb-10">
+    <div class="glass-card rounded-2xl px-6 py-5 shadow-sm">
+      <p class="text-xs font-medium text-gray-400 uppercase tracking-widest">嚴重告警</p>
+      <p class="mt-1 text-4xl font-bold text-red-600 tabular-nums">{{ critical_count }}</p>
+      <p class="mt-1 text-xs text-gray-400">Critical severity</p>
+    </div>
+    <div class="glass-card rounded-2xl px-6 py-5 shadow-sm">
+      <p class="text-xs font-medium text-gray-400 uppercase tracking-widest">已分析</p>
+      <p class="mt-1 text-4xl font-bold text-gray-900 tabular-nums">{{ analyzed_count }}</p>
+      <p class="mt-1 text-xs text-gray-400">RCA 報告已產出</p>
+    </div>
+    <div class="glass-card rounded-2xl px-6 py-5 shadow-sm">
+      <p class="text-xs font-medium text-gray-400 uppercase tracking-widest">待分析</p>
+      <p class="mt-1 text-4xl font-bold text-amber-500 tabular-nums">{{ pending_count }}</p>
+      <p class="mt-1 text-xs text-gray-400">等待 LLM 推論</p>
+    </div>
+  </div>
+
+  <!-- 事件列表 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <!-- 列表標題列 -->
+    <div class="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-gray-700">最新事件</h2>
+      <button onclick="location.reload()"
+              class="text-xs text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        重新整理
+      </button>
+    </div>
+
+    {% if reports %}
+    <div class="divide-y divide-gray-50">
+      {% for report in reports %}
+      {% set rca = report.rca %}
+      {% set severity = rca.severity_assessment | default('unknown') %}
+      <a href="/report/{{ report.report_id }}"
+         class="flex items-start gap-4 px-6 py-5 hover:bg-gray-50/60 transition-colors group">
+
+        <!-- 嚴重度指示條 -->
+        <div class="mt-1 flex-shrink-0">
+          {% if severity == 'critical' %}
+            <span class="w-2.5 h-2.5 rounded-full bg-red-500 block mt-0.5"></span>
+          {% elif severity == 'high' %}
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-400 block mt-0.5"></span>
+          {% else %}
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-400 block mt-0.5"></span>
+          {% endif %}
+        </div>
+
+        <!-- 主要資訊 -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-sm font-semibold text-gray-900 truncate">
+              {{ rca.incident_summary | default('分析中...') | truncate(72) }}
+            </span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-400 font-mono">{{ report.report_id }}</span>
+            <span class="text-gray-200">·</span>
+            <span class="text-xs text-gray-400">{{ report.generated_at[:16] | replace('T', ' ') }}</span>
+            {% if rca.estimated_mttr_minutes %}
+            <span class="text-gray-200">·</span>
+            <span class="text-xs text-gray-400">MTTR -{{ rca.estimated_mttr_minutes }}min</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- 右側徽章 -->
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <span class="px-2.5 py-1 rounded-full text-xs font-medium
+                       badge-{{ severity }}">
+            {{ severity | upper }}
+          </span>
+          <svg class="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors"
+               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 5l7 7-7 7"/>
+          </svg>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <!-- 空狀態 -->
+    <div class="py-20 text-center">
+      <div class="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <p class="text-sm text-gray-500 font-medium">尚無事件報告</p>
+      <p class="text-xs text-gray-400 mt-1">系統監控中，偵測到異常時將自動產生 RCA 報告</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- 自動每 10 秒 polling 更新（Demo 用） -->
+<script>
+  setTimeout(() => location.reload(), 10000);
+</script>
+{% endblock %}
