@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -14,23 +14,25 @@ from phase3.config import ALERT_STORE_PATH
 
 logger = logging.getLogger("WebApp")
 
+
+
 # ── 初始化 ─────────────────────────────────────────────────────────────────────
-app       = FastAPI(title="AIOps Incident Dashboard", docs_url=None, redoc_url=None)
+store     = ReportStore()
+# Phase 3 引擎
+engine    = Phase3Engine()
+
+# 最新版的 FastAPI 生命週期管理
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    engine.start()  # 啟動背景大腦
+    logger.info("Phase 3 Engine started with web server")
+    yield
+
+# 將 lifespan 綁定，宣告 app
+app       = FastAPI(title="AIOps Incident Dashboard", docs_url=None, redoc_url=None, lifespan=lifespan)
 templates = Jinja2Templates(
     directory=str(Path(__file__).parent / "templates")
 )
-store     = ReportStore()
-
-# Phase 3 引擎（在 app startup 時啟動）
-engine    = Phase3Engine()
-
-
-@app.on_event("startup")
-async def startup():
-    engine.start()
-    logger.info("Phase 3 Engine started with web server")
-
-
 # ── 頁面路由 ──────────────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
@@ -90,3 +92,12 @@ async def manual_analyze(alert_id: str, background_tasks: BackgroundTasks):
     alert["rca_result"] = None
     background_tasks.add_task(engine.process_alert, alert)
     return {"status": "processing", "alert_id": alert_id}
+
+if __name__ == "__main__":
+    import uvicorn
+    # 這裡的 port 8080 必須對應你之前瀏覽器輸入的網址
+    print("=" * 60)
+    print("🚀 AIOps 儀表板正在啟動...")
+    print("👉 請訪問: http://localhost:8080")
+    print("=" * 60)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
