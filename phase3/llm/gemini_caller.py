@@ -96,6 +96,46 @@ class GeminiCaller:
 
         # 👇 關鍵防護！！！在進入 try 打 API 之前，立刻把門「鎖上」！
         self._last_attempt_time = time.time()
+        # ==========================================
+        # 🚨 離線展示模式 (Mock Mode) - 可透過 True/False 開關 🚨
+        # ==========================================
+        MOCK_MODE = False  # <--- GitHub 最終版請設為 False
+
+        if MOCK_MODE:
+            logger.info("🎬 [Demo Mode] 啟用企業級離線快取模型，產生完美報告...")
+            time.sleep(3)  # 模擬 AI 思考 3 秒，讓錄影畫面有真實的等待感
+            from datetime import datetime, timezone
+            return RcaReport(
+                alert_id=alert_id,
+                model_used="Gemini-2.5-Flash (Offline Cached)",
+                generated_at=datetime.now(timezone.utc).isoformat(),
+                incident_summary="系統偵測到異常龐大的瞬間併發流量，導致底層資料庫連線池耗盡 (Connection Pool Exhausted)，進而引發大量 500 Internal Server Error 與延遲飆高。",
+                root_causes=[
+                    {
+                        "hypothesis": "資料庫連線池滿載 (Max Connections Reached)",
+                        "evidence": "Metrics 顯示 p95 延遲暴增，且 Log 紀錄中湧現大量 'connection timeout' 與 'refused' 錯誤。"
+                    }
+                ],
+                timeline=[
+                    {"timestamp": "T-0", "description": "系統遭遇龐大未預期之 API 流量衝擊"},
+                    {"timestamp": "T+1m", "description": "孤立森林模型精準捕捉 p95 延遲突破臨界點，觸發防護告警"},
+                    {"timestamp": "T+2m", "description": "連線池資源耗盡，發生連鎖服務崩潰"}
+                ],
+                remediation_steps=[
+                    "步驟一：立即重啟 Database Connection Pool 釋放卡死之連線",
+                    "步驟二：於 API Gateway 啟用流量限流 (Rate Limiting) 阻擋惡意請求",
+                    "步驟三：緊急調高資料庫 max_connections 參數以緩解壓力"
+                ],
+                prevention_measures=[
+                    "實作連線超時自動回收 (Idle Timeout) 機制",
+                    "導入 Redis 作為 Query Cache，大幅降低資料庫直接讀寫負載"
+                ],
+                estimated_mttr_minutes=15,
+                severity_assessment="critical",
+                confidence_overall="high",
+                feature_vector=alert.get("metrics", {})
+            )
+        # ==========================================
 
         self._respect_rate_limit()
 
